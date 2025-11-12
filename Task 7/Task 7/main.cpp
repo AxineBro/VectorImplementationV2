@@ -83,5 +83,6 @@ int main() {
 
     std::cout << "sv1 == sv2: " << (sv1 == sv2 ? "true" : "false") << std::endl;
 
+    std::cout << "dv1 + sv2: " << (dv1 + sv2) << std::endl;
     return 0;
 }
