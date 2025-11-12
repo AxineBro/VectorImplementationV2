@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <iostream>
 #include <functional>
+#include <utility>
 
 template <typename T> class Vector;
 template <typename T> std::ostream& operator<<(std::ostream& os, const Vector<T>& v);
@@ -45,9 +46,12 @@ private:
      * Эта функция обрабатывает перераспределение памяти.
      */
     void resize(size_t new_capacity) {
-        T* new_data = new T[new_capacity]();
+        T* new_data = new T[new_capacity];
         try {
-            std::copy(data, data + size, new_data);
+            if (data) {
+                for (size_t i = 0; i < size; ++i)
+                    new_data[i] = data[i];
+            }
         }
         catch (...) {
             delete[] new_data;
@@ -58,7 +62,10 @@ private:
         capacity = new_capacity;
     }
 
+
 public:
+    using value_type = T; ///< публичный псевдоним типа элемента 
+
     /**
      * @brief Конструктор по умолчанию.
      *
@@ -74,7 +81,7 @@ public:
      *
      * Инициализирует вектор заданного размера, элементы конструируются по умолчанию.
      */
-    Vector(size_t initial_size) : size(initial_size), capacity(initial_size * 2) {
+    Vector(size_t initial_size) : size(initial_size), capacity(std::max(initial_size, size_t(1)) * 2) {
         data = new T[capacity]();
     }
 
@@ -215,25 +222,16 @@ public:
      * @return True, если размеры и элементы совпадают, иначе false.
      */
     template <typename U>
+        requires requires (T a, U b) { a == b; }
     bool operator==(const Vector<U>& other) const {
-        using Op = std::equal_to<>;
-
-        if constexpr (!supports_operator<T, U, Op>()) {
-            std::cerr << "Multiplication not supported between these types.\n";
+        if (size != other.get_size()) {
+            std::cerr << "Vectors must be same size for multiplication.\n";
             return false;
         }
-        else {
-            if (size != other.get_size()) {
-                std::cerr << "Vectors must be same size for multiplication.\n";
-                return false;
-            }
 
-            using R = decltype(std::declval<T>()== std::declval<U>());
-            Vector<R> result;
-            for (size_t i = 0; i < size; ++i)
-                if (data[i] != other.data[i]) return false;
-            return true;
-        }
+        for (size_t i = 0; i < size; ++i)
+            if (data[i] != other[i]) return false;
+        return true;
     }
 
     /**
@@ -245,25 +243,19 @@ public:
      * Предполагает, что T поддерживает operator+.
      */
     template <typename U>
-    Vector operator+(const Vector<U>& other) const {
-        using Op = std::plus<>;
+        requires requires (T a, U b) { a + b; }
+    auto operator+(const Vector<U>& other) const {
+        using R = decltype(std::declval<T>() + std::declval<U>());
 
-        if constexpr (!supports_operator<T, U, Op>()) {
-            std::cerr << "Addition not supported between these types.\n";
-            return Vector<T>();
+        if (size != other.get_size()) {
+            std::cerr << "Vectors must be same size for addition.\n";
+            return Vector<R>();
         }
-        else {
-            if (size != other.get_size()) {
-                std::cerr << "Vectors must be same size for addition.\n";
-                return Vector<T>();
-            }
 
-            using R = decltype(std::declval<T>() + std::declval<U>());
-            Vector<R> result;
-            for (size_t i = 0; i < size; ++i)
-                result.push_back(data[i] + other[i]);
-            return result;
-        }
+        Vector<R> result;
+        for (size_t i = 0; i < size; ++i)
+            result.push_back(data[i] + other[i]);
+        return result;
     }
 
     /**
@@ -275,25 +267,19 @@ public:
      * Предполагает, что T поддерживает operator*.
      */
     template <typename U>
-    Vector operator*(const Vector<U>& other) const {
-        using Op = std::multiplies<>;
+        requires requires (T a, U b) { a* b; }
+    auto operator*(const Vector<U>& other) const {
+        using R = decltype(std::declval<T>()* std::declval<U>());
 
-        if constexpr (!supports_operator<T, U, Op>()) {
-            std::cerr << "Multiplication not supported between these types.\n";
-            return Vector<T>();
+        if (size != other.get_size()) {
+            std::cerr << "Vectors must be same size for multiplication.\n";
+            return Vector<R>();
         }
-        else {
-            if (size != other.get_size()) {
-                std::cerr << "Vectors must be same size for multiplication.\n";
-                return Vector<T>();
-            }
 
-            using R = decltype(std::declval<T>()* std::declval<U>());
-            Vector<R> result;
-            for (size_t i = 0; i < size; ++i)
-                result.push_back(data[i] * other[i]);
-            return result;
-        }
+        Vector<R> result;
+        for (size_t i = 0; i < size; ++i)
+            result.push_back(data[i] * other[i]);
+        return result;
     }
 
     // Объявление дружественной функции для оператора вывода
